@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.3
+
+- Rebuilt with the updated plugin SDK headers (POEFixer 365 adds optional calls for UI control names, stash objects and tabs, wider entity scans and the host automation flag). No change in what the plugin does.
+
 ## 1.1.2
 
 - The "?" next to a section title now sits in its own gap instead of on the section's line.
