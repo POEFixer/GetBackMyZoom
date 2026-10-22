@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="api">
+      <UniqueIdentifier>{1074CFB8-BF2C-5867-90D5-E88E487C3E90}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="imgui">
+      <UniqueIdentifier>{7563FCE0-A923-5356-B098-35681A0C6331}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{E0997B69-5014-5D12-A495-620D778304DC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\patch">
+      <UniqueIdentifier>{CF73FA75-41EB-5BA5-9A1A-91545CBA1A56}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ui">
+      <UniqueIdentifier>{78D8BD26-DD1B-5E05-8643-81507A15BF5B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\GetBackMyZoom.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Settings.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\patch\GameProcess.cpp">
+      <Filter>src\patch</Filter>
+    </ClCompile>
+    <ClCompile Include="src\patch\PatchDefs.cpp">
+      <Filter>src\patch</Filter>
+    </ClCompile>
+    <ClCompile Include="src\patch\Patcher.cpp">
+      <Filter>src\patch</Filter>
+    </ClCompile>
+    <ClCompile Include="src\patch\Pattern.cpp">
+      <Filter>src\patch</Filter>
+    </ClCompile>
+    <ClCompile Include="src\patch\RestoreJournal.cpp">
+      <Filter>src\patch</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\POEFixer\imgui\imgui.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\POEFixer\imgui\imgui_draw.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\POEFixer\imgui\imgui_tables.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\POEFixer\imgui\imgui_widgets.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Settings.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\patch\GameProcess.h">
+      <Filter>src\patch</Filter>
+    </ClInclude>
+    <ClInclude Include="src\patch\PatchDefs.h">
+      <Filter>src\patch</Filter>
+    </ClInclude>
+    <ClInclude Include="src\patch\Patcher.h">
+      <Filter>src\patch</Filter>
+    </ClInclude>
+    <ClInclude Include="src\patch\Pattern.h">
+      <Filter>src\patch</Filter>
+    </ClInclude>
+    <ClInclude Include="src\patch\RestoreJournal.h">
+      <Filter>src\patch</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\POEFixer\plugin_sdk\PluginAbi.h">
+      <Filter>api</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\POEFixer\plugin_sdk\PluginSDK.h">
+      <Filter>api</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

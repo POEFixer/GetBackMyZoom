@@ -1,0 +1,15 @@
+# Changelog
+
+## 1.1.1
+
+- First POEFixer release of Get Back My Zoom.
+- Safer patching: a change is written only where its pattern is found exactly once and the original bytes are confirmed, and the game is opened with the minimum access needed.
+- Changes left behind by a crash are undone automatically the next time POEFixer connects to the same game.
+- Disabling the plugin now really keeps it off: it no longer re-applies its changes when the game is attached again.
+- Restarting the game or switching to another game client is handled: changes are undone in the old process and applied to the new one.
+- No more stutter: the game scan and all writes run in the background instead of on a frame.
+- Redesigned settings tab with a clear state per feature, a "Scan again" button, a logarithmic light radius slider with "Game value", and a diagnostics card.
+
+## 1.1.0
+
+- Original release by Ömer Faruk Arpa.
