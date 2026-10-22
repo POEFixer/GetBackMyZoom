@@ -13,8 +13,12 @@
 // ---------------------------------------------------------------------------
 //   * One card per section (BeginCard / EndCard): the card pads its content, so
 //     nothing touches the tab's edges. Leave ImGui::Spacing() between cards.
-//   * Each card starts with Heading(icon, "Title"); a "?" HelpMarker beside a
-//     heading or control carries the longer explanation.
+//   * Each card starts with Heading(icon, "Title", "longer help"): the help
+//     becomes a "?" right after the title. Beside a control, a HelpMarker
+//     carries it.
+//   * Diagnostics (dry runs, scan state, what the plugin sees) go last, in
+//     BeginDiagnostics(tip) ... EndDiagnostics(): one closed card per plugin,
+//     the same everywhere.
 //   * Label-left rows share ONE measured column per block: build a LabelColumn
 //     with every label of the block, then call Row("Label") before each control.
 //     Never hard-code SameLine(120) or PushItemWidth(80).
@@ -130,7 +134,9 @@ inline void Tip(const char* text) {
     ImGui::EndTooltip();
 }
 
-// A "?" beside the previous item that shows the longer explanation.
+// A "?" beside the previous item that shows the longer explanation. For a
+// heading pass the text as Heading's `help` instead: a HelpMarker after a
+// heading lands on its separator line.
 inline void HelpMarker(const char* text) {
     ImGui::SameLine();
     ImGui::TextDisabled("?");
@@ -138,15 +144,29 @@ inline void HelpMarker(const char* text) {
 }
 
 // Heading of one block: an optional icon and a title over a separator, in the
-// accent colour.
-inline void Heading(const char* icon, const char* title) {
+// accent colour. `help` puts a "?" right after the title, in a gap the separator
+// leaves for it, with the longer explanation as its tooltip.
+inline void Heading(const char* icon, const char* title, const char* help = nullptr) {
     char buf[256];
     if (icon && icon[0]) std::snprintf(buf, sizeof(buf), "%s  %s", icon, title ? title : "");
     else std::snprintf(buf, sizeof(buf), "%s", title ? title : "");
+    const bool hasHelp = help && help[0];
+    const float gap = hasHelp ? ImGui::GetStyle().ItemSpacing.x + ImGui::CalcTextSize("?").x : 0.0f;
     ImGui::PushStyleColor(ImGuiCol_Text, Colors().Accent);
-    ImGui::SeparatorText(buf);
+    ImGui::SeparatorTextEx(0, buf, ImGui::FindRenderedTextEnd(buf), gap);
     ImGui::PopStyleColor();
+    if (!hasHelp) return;
+    ImGui::SameLine();   // SeparatorTextEx leaves the cursor at the end of the title
+    ImGui::TextDisabled("?");
+    Tip(help);
 }
+
+// The plugin's Diagnostics block: a card of its own whose single row (bug icon,
+// "Diagnostics", accent colour, hover highlight) opens it; `tip` explains what is
+// inside. Returns true while open: draw the content, then EndDiagnostics().
+// Returns false with the card already closed (no EndDiagnostics then).
+inline bool BeginDiagnostics(const char* tip = nullptr, const char* id = "diag");
+inline void EndDiagnostics();
 
 // A secondary line of explanation: wrapped to the region, in the secondary colour.
 inline void Hint(const char* text) {
@@ -270,6 +290,24 @@ inline void EndCard() {
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar();
 }
+
+inline bool BeginDiagnostics(const char* tip, const char* id) {
+    char buf[96];
+    // "\xef\x86\x88" is ICON_FA_BUG (U+F188) of the host's Font Awesome 6 font;
+    // spelled out so the kit needs no icon header.
+    std::snprintf(buf, sizeof(buf), "\xef\x86\x88  Diagnostics###%s", id && id[0] ? id : "diag");
+    char cardId[64];
+    std::snprintf(cardId, sizeof(cardId), "##%sCard", id && id[0] ? id : "diag");
+    BeginCard(cardId);
+    ImGui::PushStyleColor(ImGuiCol_Text, Colors().Accent);
+    const bool open = ImGui::TreeNodeEx(buf, ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding |
+                                                 ImGuiTreeNodeFlags_NoTreePushOnOpen);
+    ImGui::PopStyleColor();
+    Tip(tip);
+    if (!open) EndCard();
+    return open;
+}
+inline void EndDiagnostics() { EndCard(); }
 
 // Two columns only when each still has room for a label and a usable control.
 inline bool WideEnoughForTwoColumns() {

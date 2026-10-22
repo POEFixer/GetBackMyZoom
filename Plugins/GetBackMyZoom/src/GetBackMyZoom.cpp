@@ -23,7 +23,7 @@
 POEFIXER_PLUGIN_INFO(
     "GetBackMyZoom",
     "Get Back My Zoom",
-    "1.1.1",
+    "1.1.2",
     "Omer Faruk ARPA, POEFixer",
     "Restores a much further camera zoom-out, removes Atlas fog, reveals the whole map and enlarges the light radius, safely undone when switched off.")
 
@@ -147,6 +147,9 @@ public:
         DrawSectionFeatures();
         ImGui::Spacing();
         DrawSectionDiagnostics();
+        ImGui::Spacing();
+        PluginUi::Hint("Originally created by Omer Faruk ARPA. Maintained by POEFixer. GPL-3.0.");
+        ImGui::Spacing();
         ImGui::PopID();
     }
 
@@ -197,8 +200,7 @@ private:
     // --- Game connection ----------------------------------------------------
     void DrawSectionConnection() {
         PluginUi::BeginCard("###connection");
-        PluginUi::Heading(ICON_FA_PLUG, "Game connection");
-        PluginUi::HelpMarker(
+        PluginUi::Heading(ICON_FA_PLUG, "Game connection",
             "The plugin changes a few bytes of the running game's code. It finds\n"
             "them by searching for known byte patterns, writes only where a pattern\n"
             "matches exactly once, and keeps the original bytes so every change\n"
@@ -255,8 +257,8 @@ private:
 
     void DrawSectionFeatures() {
         PluginUi::BeginCard("###features");
-        PluginUi::Heading(ICON_FA_MAGNIFYING_GLASS_MINUS, "Camera and map");
-        PluginUi::HelpMarker("Tick a feature to apply it to the running game at once; untick it\n"
+        PluginUi::Heading(ICON_FA_MAGNIFYING_GLASS_MINUS, "Camera and map",
+                          "Tick a feature to apply it to the running game at once; untick it\n"
                           "to put the original back. Your choices are re-applied whenever\n"
                           "the game is attached again.");
         DrawFeatureRow(Gbmz::kInfiniteZoom);
@@ -334,8 +336,8 @@ private:
     }
 
     void DrawSectionDiagnostics() {
-        PluginUi::BeginCard("###diagnostics");
-        if (ImGui::CollapsingHeader(ICON_FA_BUG "  Diagnostics###diag")) {
+        if (PluginUi::BeginDiagnostics("Each change's state, location and original bytes, recent activity and a "
+                                       "report to copy.")) {
             // Short columns fit their content; the long byte string takes the rest
             // and wraps, so no id is cut on a narrow tab.
             const ImGuiTableFlags flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg |
@@ -380,8 +382,8 @@ private:
                 ImGui::SetClipboardText(report.c_str());
             }
             PluginUi::Tip("Copies the state above as text, for a bug report.");
+            PluginUi::EndDiagnostics();
         }
-        PluginUi::EndCard();
     }
 };
 
