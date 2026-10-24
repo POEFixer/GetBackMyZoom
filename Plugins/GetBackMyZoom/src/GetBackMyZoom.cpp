@@ -23,7 +23,7 @@
 POEFIXER_PLUGIN_INFO(
     "GetBackMyZoom",
     "Get Back My Zoom",
-    "1.1.4",
+    "1.1.5",
     "Omer Faruk ARPA, POEFixer",
     "Restores a much further camera zoom-out, removes Atlas fog, reveals the whole map and enlarges the light radius, safely undone when switched off.")
 

@@ -5,7 +5,8 @@
 namespace Gbmz {
 
 const std::array<PatchDef, kPatchCount>& Definitions() {
-    // Signatures and patch bytes as shipped by the original plugin (1.1.0).
+    // Signatures and patch bytes as shipped by the original plugin (1.1.0);
+    // RevealMap's field displacements are wildcards since 1.1.5.
     static const std::array<PatchDef, kPatchCount> defs = {{
         {
             "InfiniteZoom", "Unlimited zoom out",
@@ -26,8 +27,11 @@ const std::array<PatchDef, kPatchCount>& Definitions() {
             "RevealMap", "Reveal the whole map",
             "Shows the full layout of the area on the map instead of only the\n"
             "parts you have already explored.",
-            // call [rax+28] | mov word [r15+58],0000 | mov byte [r15+5A],..
-            "FF 50 28 66 41 C7 47 58 00 00 41 C6 47 5A",
+            // call [rax+28] | mov word [r15+d],0000 | mov byte [r15+d+2],..
+            // The field displacements are wildcards: the game moved both
+            // fields by 8 (d 0x58 -> 0x60), which the original exact
+            // pattern never found again.
+            "FF 50 28 66 41 C7 47 ?? 00 00 41 C6 47 ??",
             8, {0x90, 0x90}, PatchKind::Code,
         },
         {

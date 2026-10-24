@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.5
+
+- "Reveal the whole map" works again: the game had moved the map data it changes, so the plugin no longer found where to apply it.
+
 ## 1.1.4
 
 - Works with the separate menu window (POEFixer 366): the host hands the plugin the right drawing context for its settings tab and for its overlay.
