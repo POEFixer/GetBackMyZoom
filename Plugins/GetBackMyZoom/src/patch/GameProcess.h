@@ -3,6 +3,7 @@
 // checked reads and writes. Used only from the patcher's worker thread.
 #pragma once
 
+#include "LocText.h"
 #include "Pattern.h"
 
 #include <atomic>
@@ -43,7 +44,7 @@ public:
 
     // Opens `pid` and reads the PE layout of the module at `imageBase`.
     // On failure returns false and fills `error` with a sentence for the UI.
-    bool Open(DWORD pid, uintptr_t imageBase, std::string& error);
+    bool Open(DWORD pid, uintptr_t imageBase, LocText& error);
     void Close();
 
     bool  IsOpen() const { return m_handle != nullptr; }
@@ -56,14 +57,14 @@ public:
     // Writes `size` bytes, lifting the page protection only for the write
     // (code pages: execute-read-write, data pages: read-write), flushes the
     // instruction cache for code and reads the bytes back to confirm.
-    bool Write(uintptr_t addr, const void* data, size_t size, bool code, std::string& error) const;
+    bool Write(uintptr_t addr, const void* data, size_t size, bool code, LocText& error) const;
 
     // Copies every executable section of the image. Unreadable pages are
     // zero-filled and flagged. Returns false if stopped or nothing was read.
     bool ReadExecutableSections(std::vector<ScanRegion>& out, const std::atomic<bool>& stop) const;
 
 private:
-    bool ReadLayout(std::string& error);
+    bool ReadLayout(LocText& error);
 
     HANDLE      m_handle = nullptr;
     DWORD       m_pid = 0;

@@ -63,16 +63,16 @@ struct PatchStatus {
     bool        hasGameValue = false;
     float       gameValue = 0.f;    // Value patches: the game's own constant
     float       appliedValue = 0.f;
-    std::string detail;             // last error / explanation
+    LocText     detail;             // last error / explanation
 };
 
 struct PatcherStatus {
     SessionState session = SessionState::Stopped;
     DWORD        pid = 0;
     uint32_t     imageStamp = 0;
-    std::string  message;
+    LocText      message;
     std::array<PatchStatus, kPatchCount> patches{};
-    std::deque<std::string> recent;     // last activity lines, newest last
+    std::deque<std::string> recent;     // last activity lines (the log's, English), newest last
 };
 
 struct PatcherRequest {
@@ -115,7 +115,7 @@ private:
         bool       lastWant = false;
         float      gameValue = 0.f;
         float      applied = 0.f;
-        std::string detail;
+        LocText    detail;
     };
 
     static void ThreadEntry(Patcher* self);
@@ -135,12 +135,12 @@ private:
     void RestoreAll();
     bool Apply(size_t index, const std::vector<uint8_t>& bytes);
     bool Undo(size_t index, bool force);
-    void Fail(size_t index, std::string why);
+    void Fail(size_t index, LocText why);
     bool SaveJournal();
     void JournalPut(size_t index, const std::vector<uint8_t>& patched);
     void JournalDrop(size_t index);
 
-    void SetSession(SessionState state, std::string message = {});
+    void SetSession(SessionState state, LocText message = {});
     void Publish();
     void Log(std::string line);
 
@@ -150,11 +150,11 @@ private:
     Journal     m_journal;
     bool        m_scanned = false;
     std::chrono::steady_clock::time_point m_nextOpen{};
-    std::string  m_lastOpenError;       // last logged open refusal (logged once per pid + text)
+    LocText      m_lastOpenError;       // last logged open refusal (logged once per pid + text)
     DWORD        m_lastOpenErrorPid = 0;
     std::chrono::steady_clock::time_point m_nextVerify{};
     SessionState m_session = SessionState::Stopped;
-    std::string  m_sessionMessage;
+    LocText      m_sessionMessage;
 
     // Shared with the render thread.
     std::filesystem::path   m_journalFile;
@@ -173,6 +173,8 @@ private:
     std::atomic<uint64_t>   m_revision{0};
 };
 
+// The state's label: a key of lang/en.json (the drawing thread looks it up, the
+// log and the report take its English()).
 const char* PatchStateLabel(PatchState state);
 const char* SessionStateLabel(SessionState state);
 

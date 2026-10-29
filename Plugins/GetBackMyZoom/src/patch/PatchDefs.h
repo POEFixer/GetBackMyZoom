@@ -3,6 +3,7 @@
 // after. Pure code: covered by tests/.
 #pragma once
 
+#include "LocText.h"
 #include "Pattern.h"
 
 #include <array>
@@ -20,8 +21,8 @@ enum class PatchKind {
 
 struct PatchDef {
     const char* id;          // stable settings key (upstream names, never change)
-    const char* label;       // checkbox text
-    const char* tip;         // multi-line tooltip
+    const char* label;       // checkbox text: a key of lang/en.json
+    const char* tip;         // multi-line tooltip: a key of lang/en.json
     const char* pattern;     // byte pattern, see Pattern::Parse
     int         targetOffset = 0;    // Code: first patched byte; Value: the instruction
     std::vector<uint8_t> patch;      // Code only: bytes written at the target

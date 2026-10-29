@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.6
+
+- Follows the program language (ten languages).
+
 ## 1.1.5
 
 - "Reveal the whole map" works again: the game had moved the map data it changes, so the plugin no longer found where to apply it.

@@ -9,24 +9,19 @@ const std::array<PatchDef, kPatchCount>& Definitions() {
     // RevealMap's field displacements are wildcards since 1.1.5.
     static const std::array<PatchDef, kPatchCount> defs = {{
         {
-            "InfiniteZoom", "Unlimited zoom out",
-            "Removes the camera's zoom-out limit, so the mouse wheel zooms out\n"
-            "much further than the game normally allows.",
+            "InfiniteZoom", Key("feature_infinite_zoom"), Key("feature_infinite_zoom_tip"),
             // maxss xmm1,xmm0 | minss xmm1,[rip+limit] | movss [rsi+..],xmm1
             "F3 0F 5F C8 F3 0F 5D 0D ?? ?? ?? ?? F3 0F 11 8E",
             4, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}, PatchKind::Code,
         },
         {
-            "NoAtlasFog", "No fog on the Atlas",
-            "Removes the fog that covers unexplored parts of the Atlas.",
+            "NoAtlasFog", Key("feature_no_atlas_fog"), Key("feature_no_atlas_fog_tip"),
             // mulss xmm2,[rcx+disp8] | addss xmm0,xmm1
             "F3 0F 59 51 ?? F3 0F 58 C1",
             0, {0x90, 0x90, 0x90, 0x90, 0x90}, PatchKind::Code,
         },
         {
-            "RevealMap", "Reveal the whole map",
-            "Shows the full layout of the area on the map instead of only the\n"
-            "parts you have already explored.",
+            "RevealMap", Key("feature_reveal_map"), Key("feature_reveal_map_tip"),
             // call [rax+28] | mov word [r15+d],0000 | mov byte [r15+d+2],..
             // The field displacements are wildcards: the game moved both
             // fields by 8 (d 0x58 -> 0x60), which the original exact
@@ -35,10 +30,7 @@ const std::array<PatchDef, kPatchCount>& Definitions() {
             8, {0x90, 0x90}, PatchKind::Code,
         },
         {
-            "PlayerLightRadius", "Larger light radius",
-            "Makes the light around your character reach further, so dark areas\n"
-            "are easier to see. The value replaces a game constant; 'Game value'\n"
-            "puts the original number back.",
+            "PlayerLightRadius", Key("feature_light_radius"), Key("feature_light_radius_tip"),
             // addss xmm8,xmm6 | mulss xmm15,[rip+constant]
             "F3 44 0F 58 C6 F3 44 0F 59 3D",
             5, {}, PatchKind::Value, 9, 5,

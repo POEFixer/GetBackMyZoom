@@ -71,6 +71,12 @@
     <ClInclude Include="src\patch\RestoreJournal.h">
       <Filter>src\patch</Filter>
     </ClInclude>
+    <ClInclude Include="src\patch\LocText.h">
+      <Filter>src\patch</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lang_en.generated.h">
+      <Filter>src</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\POEFixer\plugin_sdk\PluginAbi.h">
       <Filter>api</Filter>
     </ClInclude>

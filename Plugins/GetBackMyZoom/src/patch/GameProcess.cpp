@@ -17,12 +17,9 @@ constexpr uint32_t kMaxSectionBytes = 512u << 20;    // refuse absurd headers
 constexpr size_t   kMaxTotalBytes = size_t{1} << 30;
 constexpr WORD     kMaxSections = 96;
 
-std::string Win32Message(const char* what, DWORD code) {
-    std::string out = what;
-    out += " (Windows error ";
-    out += std::to_string(code);
-    out += ")";
-    return out;
+// A sentence naming a Windows error code: `key`'s text has the placeholder {code}.
+LocText Win32Message(const char* key, DWORD code) {
+    return LocText(key, {{"code", std::to_string(code)}});
 }
 
 } // namespace
@@ -36,18 +33,17 @@ const ImageSection* ImageLayout::SectionOf(uintptr_t addr, size_t size) const {
     return nullptr;
 }
 
-bool GameProcess::Open(DWORD pid, uintptr_t imageBase, std::string& error) {
+bool GameProcess::Open(DWORD pid, uintptr_t imageBase, LocText& error) {
     Close();
     if (pid == 0 || imageBase == 0) {
-        error = "The game is not attached yet.";
+        error = Key("process_not_attached");
         return false;
     }
     m_handle = ::OpenProcess(kAccess, FALSE, pid);
     if (!m_handle) {
         const DWORD code = ::GetLastError();
-        error = code == ERROR_ACCESS_DENIED
-            ? Win32Message("Windows refused access to the game. Start POEFixer as administrator", code)
-            : Win32Message("Could not open the game process", code);
+        error = code == ERROR_ACCESS_DENIED ? Win32Message(Key("process_access_denied"), code)
+                                            : Win32Message(Key("process_open_failed"), code);
         return false;
     }
     m_pid = pid;
@@ -77,11 +73,11 @@ bool GameProcess::Read(uintptr_t addr, void* buffer, size_t size) const {
     return ::ReadProcessMemory(m_handle, reinterpret_cast<LPCVOID>(addr), buffer, size, &got) && got == size;
 }
 
-bool GameProcess::ReadLayout(std::string& error) {
+bool GameProcess::ReadLayout(LocText& error) {
     IMAGE_DOS_HEADER dos{};
     if (!Read(m_layout.base, &dos, sizeof(dos)) || dos.e_magic != IMAGE_DOS_SIGNATURE ||
         dos.e_lfanew <= 0 || dos.e_lfanew > 0x1000) {
-        error = "The game image could not be read (bad DOS header).";
+        error = Key("image_bad_dos_header");
         return false;
     }
     IMAGE_NT_HEADERS64 nt{};
@@ -89,12 +85,12 @@ bool GameProcess::ReadLayout(std::string& error) {
     if (!Read(ntAddr, &nt, sizeof(nt)) || nt.Signature != IMAGE_NT_SIGNATURE ||
         nt.FileHeader.Machine != IMAGE_FILE_MACHINE_AMD64 ||
         nt.OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
-        error = "The game image could not be read (not a 64-bit PE image).";
+        error = Key("image_not_pe64");
         return false;
     }
     const WORD count = nt.FileHeader.NumberOfSections;
     if (count == 0 || count > kMaxSections) {
-        error = "The game image has an unexpected section table.";
+        error = Key("image_unexpected_sections");
         return false;
     }
     m_layout.sizeOfImage = nt.OptionalHeader.SizeOfImage;
@@ -104,7 +100,7 @@ bool GameProcess::ReadLayout(std::string& error) {
     const uintptr_t secAddr = ntAddr + offsetof(IMAGE_NT_HEADERS64, OptionalHeader) +
                               nt.FileHeader.SizeOfOptionalHeader;
     if (!Read(secAddr, headers.data(), headers.size() * sizeof(IMAGE_SECTION_HEADER))) {
-        error = "The game image could not be read (section table).";
+        error = Key("image_section_table_unreadable");
         return false;
     }
     for (const auto& h : headers) {
@@ -118,7 +114,7 @@ bool GameProcess::ReadLayout(std::string& error) {
         m_layout.sections.push_back(s);
     }
     if (m_layout.sections.empty()) {
-        error = "The game image has no usable sections.";
+        error = Key("image_no_sections");
         return false;
     }
     return true;
@@ -161,21 +157,21 @@ bool GameProcess::ReadExecutableSections(std::vector<ScanRegion>& out, const std
     return !out.empty();
 }
 
-bool GameProcess::Write(uintptr_t addr, const void* data, size_t size, bool code, std::string& error) const {
+bool GameProcess::Write(uintptr_t addr, const void* data, size_t size, bool code, LocText& error) const {
     if (!m_handle || !addr || !data || size == 0) {
-        error = "Nothing to write.";
+        error = Key("write_nothing");
         return false;
     }
     // Only inside the game image, and only in a section of the expected kind.
     const ImageSection* section = m_layout.SectionOf(addr, size);
     if (!section || section->Executable() != code) {
-        error = "Refused: the address is not where this change belongs.";
+        error = Key("write_wrong_place");
         return false;
     }
     DWORD oldProtect = 0;
     if (!::VirtualProtectEx(m_handle, reinterpret_cast<LPVOID>(addr), size,
                             code ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE, &oldProtect)) {
-        error = Win32Message("Windows refused to unlock the game memory", ::GetLastError());
+        error = Win32Message(Key("write_unlock_refused"), ::GetLastError());
         return false;
     }
     SIZE_T written = 0;
@@ -185,12 +181,12 @@ bool GameProcess::Write(uintptr_t addr, const void* data, size_t size, bool code
     ::VirtualProtectEx(m_handle, reinterpret_cast<LPVOID>(addr), size, oldProtect, &ignored);
     if (code) ::FlushInstructionCache(m_handle, reinterpret_cast<LPCVOID>(addr), size);
     if (!ok || written != size) {
-        error = Win32Message("Writing to the game failed", writeError);
+        error = Win32Message(Key("write_failed"), writeError);
         return false;
     }
     std::vector<uint8_t> check(size);
     if (!Read(addr, check.data(), size) || std::memcmp(check.data(), data, size) != 0) {
-        error = "The game memory did not keep the new bytes.";
+        error = Key("write_not_kept");
         return false;
     }
     return true;

@@ -4,7 +4,14 @@
 //
 // Originally created by Omer Faruk ARPA; maintained by POEFixer since
 // October 2026. Licensed under the GNU General Public License v3.0.
+//
+// Texts follow the program language (PluginI18n.h): lang/<code>.json next to the
+// DLL, English compiled in through lang_en.generated.h (python
+// tools/plugin_i18n/gen.py Plugins/GetBackMyZoom after editing lang/en.json). The
+// patcher's worker hands its texts on as keys (patch/LocText.h): they are worded
+// here, as drawn; its log lines and the copied report stay English.
 #include "../../../POEFixer/plugin_sdk/PluginSDK.h"
+#include "lang_en.generated.h"   // once per DLL, after PluginSDK.h
 #include "../../../POEFixer/imgui/IconsFontAwesome6.h"
 #include "../../../POEFixer/plugin_sdk/PluginUi.h"
 
@@ -14,8 +21,11 @@
 #include <imgui.h>
 #include <imgui_internal.h>   // ImTextInitClassifiers (see BindImGui)
 
+#include <sal.h>
+
 #include <algorithm>
 #include <chrono>
+#include <cstdarg>
 #include <cstdio>
 #include <string>
 
@@ -23,17 +33,47 @@
 POEFIXER_PLUGIN_INFO(
     "GetBackMyZoom",
     "Get Back My Zoom",
-    "1.1.5",
+    "1.1.6",
     "Omer Faruk ARPA, POEFixer",
     "Restores a much further camera zoom-out, removes Atlas fog, reveals the whole map and enlarges the light radius, safely undone when switched off.")
 
+// The English of a worker text: the compiled-in lang/en.json (constant data, any thread).
+std::string Gbmz::English(const LocText& t) {
+    if (t.Empty()) return {};
+    for (const auto& e : kPluginLangEn)
+        if (t.key == e.key) return FillPlaceholders(e.text, t.args);
+    return t.key;
+}
+
 namespace {
 
+namespace I18n = PluginSDK::I18n;
 using Clock = std::chrono::steady_clock;
 using GetBackMyZoomConfig::kLightMax;
 using GetBackMyZoomConfig::kLightMin;
 using Gbmz::PatchState;
 using Gbmz::SessionState;
+
+// A worker text in the program language (drawing thread only).
+std::string Text(const Gbmz::LocText& t) {
+    if (t.Empty()) return {};
+    return Gbmz::FillPlaceholders(I18n::Tr(t.key.c_str()), t.args);
+}
+
+// printf for a TrF argument: Num("%.0f", value). The format is code, never a translation.
+std::string Num(_In_z_ _Printf_format_string_ const char* format, ...) {
+    char buf[128];
+    va_list args;
+    va_start(args, format);
+    std::vsnprintf(buf, sizeof(buf), format, args);
+    va_end(args);
+    return buf;
+}
+
+// "<icon>  <text>###<id>": a button label whose ImGui id never changes with the language.
+std::string IconLabel(const char* icon, const char* key, const char* id) {
+    return std::string(icon) + "  " + I18n::Tr(key) + "###" + id;
+}
 
 ImVec4 PatchColor(PatchState s) {
     const PluginUi::Palette p = PluginUi::Colors();
@@ -82,10 +122,10 @@ void Pill(const char* text, const ImVec4& color, const char* tip = nullptr) {
 
 const char* PatchTip(PatchState s) {
     switch (s) {
-        case PatchState::Unknown:  return "Waiting for the game to be scanned.";
-        case PatchState::Off:      return "Found in this game version and currently off.";
-        case PatchState::On:       return "Active in the running game.";
-        case PatchState::NotFound: return "The code this feature changes was not found.\nThe game was probably updated; the feature\nstays off until the plugin is updated.";
+        case PatchState::Unknown:  return I18n::Tr("tip_waiting_scan");
+        case PatchState::Off:      return I18n::Tr("tip_off");
+        case PatchState::On:       return I18n::Tr("tip_active");
+        case PatchState::NotFound: return I18n::Tr("tip_not_found");
         default:                   return nullptr;
     }
 }
@@ -136,7 +176,7 @@ public:
     void DrawSettings() override {
         BindImGui();
         if (!HostCompatible()) {
-            PluginUi::Hint("This POEFixer version is too old for Get Back My Zoom. Update POEFixer.");
+            PluginUi::Hint(I18n::Tr("host_too_old"));
             return;
         }
         RefreshStatus();
@@ -200,36 +240,28 @@ private:
     // --- Game connection ----------------------------------------------------
     void DrawSectionConnection() {
         PluginUi::BeginCard("###connection");
-        PluginUi::Heading(ICON_FA_PLUG, "Game connection",
-            "The plugin changes a few bytes of the running game's code. It finds\n"
-            "them by searching for known byte patterns, writes only where a pattern\n"
-            "matches exactly once, and keeps the original bytes so every change\n"
-            "can be undone.\n\n"
-            "If Windows refuses access, start POEFixer as administrator.");
+        PluginUi::Heading(ICON_FA_PLUG, I18n::Tr("connection_title"), I18n::Tr("connection_help"));
 
-        Pill(Gbmz::SessionStateLabel(m_status.session), SessionColor(m_status.session));
+        Pill(I18n::Tr(Gbmz::SessionStateLabel(m_status.session)), SessionColor(m_status.session));
         ImGui::SameLine();
         ImGui::AlignTextToFramePadding();
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextUnformatted(m_status.message.empty() ? "Waiting for the game." : m_status.message.c_str());
+        const std::string message = Text(m_status.message);
+        ImGui::TextUnformatted(message.empty() ? I18n::Tr("message_waiting") : message.c_str());
         ImGui::PopTextWrapPos();
 
-        if (m_status.pid) {
-            ImGui::AlignTextToFramePadding();
-            ImGui::TextDisabled("Game process %lu", static_cast<unsigned long>(m_status.pid));
-        } else {
-            ImGui::AlignTextToFramePadding();
-            ImGui::TextDisabled("No game process");
-        }
-        const char* rescanLabel = ICON_FA_ARROWS_ROTATE "  Scan again###rescan";
-        SameLineRightOrWrap(PluginUi::ButtonWidth(rescanLabel));
+        ImGui::AlignTextToFramePadding();
+        if (m_status.pid)
+            ImGui::TextDisabled("%s", I18n::TrF("connection_process", {{"pid", Num("%lu", static_cast<unsigned long>(m_status.pid))}}).c_str());
+        else
+            ImGui::TextDisabled("%s", I18n::Tr("connection_no_process"));
+        const std::string rescanLabel = IconLabel(ICON_FA_ARROWS_ROTATE, I18n::Key("connection_rescan"), "rescan");
+        SameLineRightOrWrap(PluginUi::ButtonWidth(rescanLabel.c_str()));
         const bool canRescan = m_status.session == SessionState::Ready || m_status.session == SessionState::ScanFailed;
         ImGui::BeginDisabled(!canRescan);
-        if (PluginUi::SubtleButton(rescanLabel)) m_patcher.Rescan();
+        if (PluginUi::SubtleButton(rescanLabel.c_str())) m_patcher.Rescan();
         ImGui::EndDisabled();
-        PluginUi::Tip("Undoes every change, reads the game code again and re-applies\n"
-                   "what is switched on. Use it after a game update or when a\n"
-                   "feature reports a problem.");
+        PluginUi::Tip(I18n::Tr("connection_rescan_tip"));
         PluginUi::EndCard();
     }
 
@@ -241,39 +273,38 @@ private:
         char id[24];
         std::snprintf(id, sizeof(id), "want%zu", i);
         bool want = m_settings.want[i];
-        if (PluginUi::Check(def.label, id, &want, def.tip)) {
+        if (PluginUi::Check(I18n::Tr(def.label), id, &want, I18n::Tr(def.tip))) {
             m_settings.want[i] = want;
             MarkDirty();
             PostRequest();
         }
 
         const bool sessionUp = m_status.session == SessionState::Ready;
-        const char* text = sessionUp ? Gbmz::PatchStateLabel(st.state) : "Waiting";
+        const char* text = I18n::Tr(Gbmz::PatchStateLabel(sessionUp ? st.state : PatchState::Unknown));
         const ImVec4 color = sessionUp ? PatchColor(st.state) : PluginUi::Colors().TextDisabled;
-        const char* tip = !st.detail.empty() ? st.detail.c_str() : PatchTip(sessionUp ? st.state : PatchState::Unknown);
+        const std::string detail = Text(st.detail);
+        const char* tip = !detail.empty() ? detail.c_str() : PatchTip(sessionUp ? st.state : PatchState::Unknown);
         SameLineRightOrWrap(StatusPillWidth(text));
         Pill(text, color, tip);
     }
 
     void DrawSectionFeatures() {
         PluginUi::BeginCard("###features");
-        PluginUi::Heading(ICON_FA_MAGNIFYING_GLASS_MINUS, "Camera and map",
-                          "Tick a feature to apply it to the running game at once; untick it\n"
-                          "to put the original back. Your choices are re-applied whenever\n"
-                          "the game is attached again.");
+        PluginUi::Heading(ICON_FA_MAGNIFYING_GLASS_MINUS, I18n::Tr("features_title"), I18n::Tr("features_help"));
         DrawFeatureRow(Gbmz::kInfiniteZoom);
         DrawFeatureRow(Gbmz::kNoAtlasFog);
         DrawFeatureRow(Gbmz::kRevealMap);
 
         ImGui::Spacing();
-        PluginUi::Heading(ICON_FA_LIGHTBULB, "Light");
+        PluginUi::Heading(ICON_FA_LIGHTBULB, I18n::Tr("light_title"));
         DrawFeatureRow(Gbmz::kLightRadius);
         {
             const Gbmz::PatchStatus& st = m_status.patches[Gbmz::kLightRadius];
             const float rowX = ImGui::GetCursorPosX();
-            const PluginUi::LabelColumn col({"Radius"});
+            const char* radiusLabel = I18n::Tr("light_radius");
+            const PluginUi::LabelColumn col({radiusLabel});
             ImGui::BeginDisabled(!m_settings.want[Gbmz::kLightRadius]);
-            col.Row("Radius");
+            col.Row(radiusLabel);
             float v = m_settings.lightRadius;
             if (ImGui::SliderFloat("###radius", &v, kLightMin, kLightMax, "%.0f",
                                    ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp)) {
@@ -281,54 +312,55 @@ private:
                 MarkDirty();
                 PostRequest();
             }
-            char tip[200];
             if (st.hasGameValue)
-                std::snprintf(tip, sizeof(tip), "The value written into the game.\nThe game's own value is %.0f.\nCtrl+click to type a number.", st.gameValue);
+                PluginUi::Tip(I18n::TrF("light_radius_tip_game", {{"value", Num("%.0f", st.gameValue)}}).c_str());
             else
-                std::snprintf(tip, sizeof(tip), "The value written into the game.\nCtrl+click to type a number.");
-            PluginUi::Tip(tip);
+                PluginUi::Tip(I18n::Tr("light_radius_tip"));
 
             // Beside the slider; on a narrow tab under it, in the control column.
-            const char* resetLabel = ICON_FA_ROTATE_LEFT "  Game value###gameValue";
+            const std::string resetLabel = IconLabel(ICON_FA_ROTATE_LEFT, I18n::Key("light_game_value"), "gameValue");
             ImGui::SameLine();
-            if (ImGui::GetContentRegionAvail().x < PluginUi::ButtonWidth(resetLabel)) {
+            if (ImGui::GetContentRegionAvail().x < PluginUi::ButtonWidth(resetLabel.c_str())) {
                 ImGui::NewLine();
                 ImGui::SetCursorPosX(rowX + col.Width());
             }
             ImGui::BeginDisabled(!st.hasGameValue);
-            if (PluginUi::SubtleButton(resetLabel)) {
+            if (PluginUi::SubtleButton(resetLabel.c_str())) {
                 m_settings.lightRadius = std::clamp(st.gameValue, kLightMin, kLightMax);
                 MarkDirty();
                 PostRequest();
             }
             ImGui::EndDisabled();
-            PluginUi::Tip("Sets the radius back to the game's own value\n(known once the game has been scanned).");
+            PluginUi::Tip(I18n::Tr("light_game_value_tip"));
             ImGui::EndDisabled();
         }
 
         ImGui::Spacing();
-        PluginUi::Hint("Changes are undone when you switch them off, disable this plugin, "
-                    "detach the game or close POEFixer.");
+        PluginUi::Hint(I18n::Tr("features_hint"));
         PluginUi::EndCard();
     }
 
     // --- Diagnostics (collapsed) ---------------------------------------------
+    // The copied report is a debug dump: English (worker texts through Gbmz::English).
     std::string BuildReport() const {
         std::string r = "Get Back My Zoom ";
         r += PluginSDK_GetInfo()->version;
         r += "\nSession: ";
-        r += Gbmz::SessionStateLabel(m_status.session);
-        r += " - " + m_status.message + "\n";
+        r += Gbmz::English(Gbmz::SessionStateLabel(m_status.session));
+        r += " - " + Gbmz::English(m_status.message) + "\n";
         char buf[256];
         std::snprintf(buf, sizeof(buf), "Process: %lu, image stamp 0x%08X\n",
                       static_cast<unsigned long>(m_status.pid), m_status.imageStamp);
         r += buf;
         for (size_t i = 0; i < Gbmz::kPatchCount; ++i) {
             const auto& st = m_status.patches[i];
-            std::snprintf(buf, sizeof(buf), "%s: %s, matches %d, rva 0x%X, original [%s]%s%s\n",
-                          Gbmz::Definitions()[i].id, Gbmz::PatchStateLabel(st.state), st.matches, st.rva,
-                          st.originalHex.c_str(), st.detail.empty() ? "" : " - ", st.detail.c_str());
+            const std::string detail = Gbmz::English(st.detail);
+            std::snprintf(buf, sizeof(buf), "%s: %s, matches %d, rva 0x%X, original [%s]",
+                          Gbmz::Definitions()[i].id, Gbmz::English(Gbmz::PatchStateLabel(st.state)).c_str(),
+                          st.matches, st.rva, st.originalHex.c_str());
             r += buf;
+            if (!detail.empty()) r += " - " + detail;
+            r += "\n";
         }
         r += "Recent:\n";
         for (const auto& line : m_status.recent) r += "  " + line + "\n";
@@ -336,26 +368,25 @@ private:
     }
 
     void DrawSectionDiagnostics() {
-        if (PluginUi::BeginDiagnostics("Each change's state, location and original bytes, recent activity and a "
-                                       "report to copy.")) {
+        if (PluginUi::BeginDiagnostics(I18n::Tr("diag_tip"))) {
             // Short columns fit their content; the long byte string takes the rest
             // and wraps, so no id is cut on a narrow tab.
             const ImGuiTableFlags flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg |
                                           ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_PadOuterX;
             if (ImGui::BeginTable("###patches", 4, flags)) {
-                ImGui::TableSetupColumn("Feature", ImGuiTableColumnFlags_WidthFixed);
-                ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed);
-                ImGui::TableSetupColumn("Location", ImGuiTableColumnFlags_WidthFixed);
-                ImGui::TableSetupColumn("Bytes", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableSetupColumn(I18n::TrId("diag_col_feature"), ImGuiTableColumnFlags_WidthFixed, 0.0f);
+                ImGui::TableSetupColumn(I18n::TrId("diag_col_state"), ImGuiTableColumnFlags_WidthFixed, 0.0f);
+                ImGui::TableSetupColumn(I18n::TrId("diag_col_location"), ImGuiTableColumnFlags_WidthFixed, 0.0f);
+                ImGui::TableSetupColumn(I18n::TrId("diag_col_bytes"), ImGuiTableColumnFlags_WidthStretch);
                 ImGui::TableHeadersRow();
                 for (size_t i = 0; i < Gbmz::kPatchCount; ++i) {
                     const auto& st = m_status.patches[i];
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
-                    ImGui::TextUnformatted(Gbmz::Definitions()[i].id);
+                    ImGui::TextUnformatted(Gbmz::Definitions()[i].id);   // the stable id, as in the settings file
                     ImGui::TableNextColumn();
-                    ImGui::TextColored(PatchColor(st.state), "%s", Gbmz::PatchStateLabel(st.state));
-                    if (!st.detail.empty()) PluginUi::Tip(st.detail.c_str());
+                    ImGui::TextColored(PatchColor(st.state), "%s", I18n::Tr(Gbmz::PatchStateLabel(st.state)));
+                    if (!st.detail.Empty()) PluginUi::Tip(Text(st.detail).c_str());
                     ImGui::TableNextColumn();
                     if (st.rva) ImGui::Text("game+0x%X", st.rva);
                     else ImGui::TextDisabled("-");
@@ -368,20 +399,22 @@ private:
                 ImGui::EndTable();
             }
             ImGui::Spacing();
-            ImGui::TextDisabled("Recent activity");
+            ImGui::TextDisabled("%s", I18n::Tr("diag_recent"));
             if (m_status.recent.empty()) {
-                ImGui::TextDisabled("(nothing yet)");
+                ImGui::TextDisabled("%s", I18n::Tr("diag_recent_none"));
             } else {
+                // The log's own lines (English, as in the POEFixer log).
                 ImGui::PushTextWrapPos(0.0f);
                 for (const auto& line : m_status.recent) ImGui::TextUnformatted(line.c_str());
                 ImGui::PopTextWrapPos();
             }
             ImGui::Spacing();
-            if (PluginUi::SubtleButton(ICON_FA_CLIPBOARD "  Copy report###copy")) {
+            const std::string copyLabel = IconLabel(ICON_FA_CLIPBOARD, I18n::Key("diag_copy"), "copy");
+            if (PluginUi::SubtleButton(copyLabel.c_str())) {
                 const std::string report = BuildReport();
                 ImGui::SetClipboardText(report.c_str());
             }
-            PluginUi::Tip("Copies the state above as text, for a bug report.");
+            PluginUi::Tip(I18n::Tr("diag_copy_tip"));
             PluginUi::EndDiagnostics();
         }
     }

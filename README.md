@@ -1,6 +1,6 @@
 # Get Back My Zoom
 
-Current version: 1.1.5
+Current version: 1.1.6
 
 Requires POE2Fixer 364 or newer.
 
@@ -87,11 +87,12 @@ This repository is the plugin folder from the POE2Fixer source tree (`Plugins/Ge
 - `POEFixer/plugin_sdk/` - the POE2Fixer Plugin SDK v6 headers (`PluginAbi.h`, `PluginSDK.h`)
 - `POEFixer/imgui/` - the Dear ImGui sources the DLL compiles against
 - `POEFixer/core/` - small self-contained helper headers used by the plugin
+- `tools/plugin_i18n/gen.py` - the translation tool: after editing `Plugins/GetBackMyZoom/lang/en.json` run `python tools/plugin_i18n/gen.py Plugins/GetBackMyZoom` (it rewrites the embedded English header); `--gate` checks every language file and the keys the sources use
 
 1. Install Visual Studio 2022 with the "Desktop development with C++" workload (MSVC v143, Windows 10/11 SDK).
 2. Open `GetBackMyZoom.sln`, select **Release | x64** and build the solution.
 3. The plugin is written to `x64\Release\Plugins\GetBackMyZoom\GetBackMyZoom.dll` (Release builds carry no debug information, see `Directory.Build.targets`).
-4. Copy `GetBackMyZoom.dll` into `Plugins\GetBackMyZoom\` next to the POE2Fixer executable.
+4. Copy `GetBackMyZoom.dll` into `Plugins\GetBackMyZoom\` next to the POE2Fixer executable, together with `Plugins\GetBackMyZoom\lang` from this repository (same folder names).
 
 ## Credits
 

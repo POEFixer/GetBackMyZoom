@@ -25,29 +25,29 @@ bool Writable(PatchState s) {
 
 const char* PatchStateLabel(PatchState state) {
     switch (state) {
-        case PatchState::Unknown:        return "Waiting";
-        case PatchState::NotFound:       return "Not found";
-        case PatchState::Ambiguous:      return "Not unique";
-        case PatchState::AlreadyChanged: return "Already changed";
-        case PatchState::Invalid:        return "Unsafe";
-        case PatchState::Off:            return "Off";
-        case PatchState::On:             return "Active";
-        case PatchState::Failed:         return "Failed";
-        case PatchState::Reverted:       return "Undone by game";
+        case PatchState::Unknown:        return Key("patch_state_waiting");
+        case PatchState::NotFound:       return Key("patch_state_not_found");
+        case PatchState::Ambiguous:      return Key("patch_state_not_unique");
+        case PatchState::AlreadyChanged: return Key("patch_state_already_changed");
+        case PatchState::Invalid:        return Key("patch_state_unsafe");
+        case PatchState::Off:            return Key("patch_state_off");
+        case PatchState::On:             return Key("patch_state_active");
+        case PatchState::Failed:         return Key("patch_state_failed");
+        case PatchState::Reverted:       return Key("patch_state_undone_by_game");
     }
     return "?";
 }
 
 const char* SessionStateLabel(SessionState state) {
     switch (state) {
-        case SessionState::Stopped:     return "Stopped";
-        case SessionState::NotAttached: return "No game";
-        case SessionState::Opening:     return "Connecting";
-        case SessionState::Scanning:    return "Scanning";
-        case SessionState::Ready:       return "Ready";
-        case SessionState::OpenFailed:  return "No access";
-        case SessionState::ScanFailed:  return "Scan failed";
-        case SessionState::Crashed:     return "Stopped (error)";
+        case SessionState::Stopped:     return Key("session_stopped");
+        case SessionState::NotAttached: return Key("session_no_game");
+        case SessionState::Opening:     return Key("session_connecting");
+        case SessionState::Scanning:    return Key("session_scanning");
+        case SessionState::Ready:       return Key("session_ready");
+        case SessionState::OpenFailed:  return Key("session_no_access");
+        case SessionState::ScanFailed:  return Key("session_scan_failed");
+        case SessionState::Crashed:     return Key("session_stopped_error");
     }
     return "?";
 }
@@ -64,7 +64,7 @@ void Patcher::Start(const std::filesystem::path& journalFile) {
     m_rt = {};
     m_scanned = false;
     m_nextOpen = {};
-    m_lastOpenError.clear();
+    m_lastOpenError.Clear();
     m_lastOpenErrorPid = 0;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -75,7 +75,7 @@ void Patcher::Start(const std::filesystem::path& journalFile) {
         std::lock_guard<std::mutex> lock(m_statusMutex);
         m_status = {};
     }
-    SetSession(SessionState::NotAttached, "Waiting for the game.");
+    SetSession(SessionState::NotAttached, Key("message_waiting"));
     m_thread = std::thread(&Patcher::ThreadEntry, this);
 }
 
@@ -93,7 +93,7 @@ void Patcher::Stop() {
         SehRun(&Patcher::FinishEntry, this);
         m_proc.Close();
     }
-    SetSession(SessionState::Stopped, "Plugin disabled; every change was undone.");
+    SetSession(SessionState::Stopped, Key("message_disabled"));
 }
 
 void Patcher::Request(const PatcherRequest& request) {
@@ -164,9 +164,7 @@ void Patcher::ThreadEntry(Patcher* self) {
     SehRun(&Patcher::FinishEntry, self);
     self->m_proc.Close();
     if (!clean) {
-        self->SetSession(SessionState::Crashed,
-                         "The patcher stopped after an internal error. Changes were undone where possible. "
-                         "Disable and enable the plugin to start it again.");
+        self->SetSession(SessionState::Crashed, Key("message_crashed"));
         self->Log("Patcher stopped after an internal error");
     }
 }
@@ -209,7 +207,7 @@ void Patcher::Tick(const PatcherRequest& req, bool rescan) {
 
     if (!m_proc.IsOpen()) {
         if (req.pid == 0 || req.imageBase == 0) {
-            if (m_session != SessionState::NotAttached) SetSession(SessionState::NotAttached, "Waiting for the game.");
+            if (m_session != SessionState::NotAttached) SetSession(SessionState::NotAttached, Key("message_waiting"));
             return;
         }
         if (now < m_nextOpen && !rescan) return;
@@ -233,20 +231,20 @@ void Patcher::Tick(const PatcherRequest& req, bool rescan) {
 }
 
 bool Patcher::OpenSession(const PatcherRequest& req) {
-    SetSession(SessionState::Opening, "Connecting to the game.");
-    std::string error;
+    SetSession(SessionState::Opening, Key("message_connecting"));
+    LocText error;
     if (!m_proc.Open(req.pid, req.imageBase, error)) {
         SetSession(SessionState::OpenFailed, error);
         // Retried every few seconds: log a refusal once per game process and
         // text, not on every attempt (the status line keeps showing it).
         if (req.pid != m_lastOpenErrorPid || error != m_lastOpenError) {
-            Log(error);
+            Log(English(error));
             m_lastOpenError = error;
             m_lastOpenErrorPid = req.pid;
         }
         return false;
     }
-    m_lastOpenError.clear();
+    m_lastOpenError.Clear();
     m_lastOpenErrorPid = 0;
     const ImageLayout& L = m_proc.Layout();
     m_journal = {};
@@ -276,7 +274,7 @@ void Patcher::CloseSession(bool processGone) {
         m_status.pid = 0;
         m_status.imageStamp = 0;
     }
-    SetSession(SessionState::NotAttached, "Waiting for the game.");
+    SetSession(SessionState::NotAttached, Key("message_waiting"));
 }
 
 // A record left by a session that could not undo its changes.
@@ -299,11 +297,11 @@ void Patcher::RecoverFromJournal() {
             continue;
         }
         const ImageSection* sec = L.SectionOf(addr, current.size());
-        std::string error;
+        LocText error;
         if (sec && m_proc.Write(addr, e.original.data(), e.original.size(), sec->Executable(), error))
             Log("Undid " + e.id + " left over from an earlier session.");
         else
-            Log("Could not undo " + e.id + " from an earlier session: " + error);
+            Log("Could not undo " + e.id + " from an earlier session: " + English(error));
     }
     Journal::Remove(m_journalFile);
 }
@@ -319,11 +317,11 @@ void Patcher::Scan() {
         rt = {};
         rt.lastWant = want;
     }
-    SetSession(SessionState::Scanning, "Reading the game code.");
+    SetSession(SessionState::Scanning, Key("message_reading"));
     std::vector<ScanRegion> regions;
     if (!m_proc.ReadExecutableSections(regions, m_stop)) {
         if (m_stop.load()) return;
-        SetSession(SessionState::ScanFailed, "The game code could not be read. Try 'Scan again'.");
+        SetSession(SessionState::ScanFailed, Key("message_read_failed"));
         Log("Scan failed: no readable code.");
         return;
     }
@@ -333,9 +331,8 @@ void Patcher::Scan() {
 
     int found = 0;
     for (const auto& rt : m_rt) found += rt.state == PatchState::Off ? 1 : 0;
-    SetSession(SessionState::Ready, found == static_cast<int>(kPatchCount)
-                                        ? "Connected. Every feature was found."
-                                        : "Connected. Some features were not found in this game version.");
+    SetSession(SessionState::Ready, found == static_cast<int>(kPatchCount) ? Key("message_all_found")
+                                                                           : Key("message_some_missing"));
     Log("Scan done: " + std::to_string(found) + " of " + std::to_string(kPatchCount) + " features found.");
 }
 
@@ -346,7 +343,9 @@ void Patcher::ScanOne(size_t i, const std::vector<ScanRegion>& regions) {
     const char* invalid = ValidateDefinition(def);
     if (!pattern || invalid[0] != '\0') {
         rt.state = PatchState::Invalid;
-        rt.detail = invalid;
+        // The reason is the definition check's own words (a developer's, never shown unless a
+        // definition is broken; the tests check every one).
+        rt.detail = LocText(Key("detail_definition_invalid"), {{"reason", invalid}});
         return;
     }
     const MatchResult m = FindMatches(*pattern, regions, 2);
@@ -355,18 +354,17 @@ void Patcher::ScanOne(size_t i, const std::vector<ScanRegion>& regions) {
         const auto patched = PatchedPattern(def);
         if (patched && FindMatches(*patched, regions, 2).count == 1) {
             rt.state = PatchState::AlreadyChanged;
-            rt.detail = "This code is already changed, probably by another copy of this plugin or another tool. "
-                        "Restart the game to get the original back.";
+            rt.detail = Key("detail_already_changed");
         } else {
             rt.state = PatchState::NotFound;
-            rt.detail = "The code this feature changes was not found. The game was probably updated.";
+            rt.detail = Key("detail_not_found");
         }
-        Log(std::string(def.id) + ": " + PatchStateLabel(rt.state));
+        Log(std::string(def.id) + ": " + English(PatchStateLabel(rt.state)));
         return;
     }
     if (m.count > 1) {
         rt.state = PatchState::Ambiguous;
-        rt.detail = "The pattern matches more than one place, so nothing is written.";
+        rt.detail = Key("detail_not_unique");
         Log(std::string(def.id) + ": pattern is not unique; left alone.");
         return;
     }
@@ -381,7 +379,7 @@ void Patcher::ScanOne(size_t i, const std::vector<ScanRegion>& regions) {
         const ImageSection* sec = L.SectionOf(target, n);
         if (!region.RangeReadable(at, n) || !sec || !sec->Executable()) {
             rt.state = PatchState::Invalid;
-            rt.detail = "The matched code failed a safety check.";
+            rt.detail = Key("detail_safety_check");
             return;
         }
         rt.target = target;
@@ -395,7 +393,7 @@ void Patcher::ScanOne(size_t i, const std::vector<ScanRegion>& regions) {
     const size_t dispAt = at + static_cast<size_t>(def.ripDispOffset);
     if (!region.RangeReadable(dispAt, 4)) {
         rt.state = PatchState::Invalid;
-        rt.detail = "The instruction could not be read.";
+        rt.detail = Key("detail_instruction_unreadable");
         return;
     }
     int32_t disp = 0;
@@ -408,13 +406,13 @@ void Patcher::ScanOne(size_t i, const std::vector<ScanRegion>& regions) {
     if ((constant & 3) != 0 || !sec || sec->Executable() || !sec->Readable() ||
         !m_proc.Read(constant, bytes.data(), 4)) {
         rt.state = PatchState::Invalid;
-        rt.detail = "The constant is not where it is expected.";
+        rt.detail = Key("detail_constant_misplaced");
         return;
     }
     std::memcpy(&value, bytes.data(), 4);
     if (!std::isfinite(value) || std::fabs(value) > 1e9f) {
         rt.state = PatchState::Invalid;
-        rt.detail = "The constant does not hold a sensible number.";
+        rt.detail = Key("detail_constant_not_sensible");
         return;
     }
     rt.target = constant;
@@ -438,7 +436,7 @@ void Patcher::Reconcile(const PatcherRequest& req) {
             rt.latched = false;
             if (rt.state == PatchState::Failed || rt.state == PatchState::Reverted) {
                 rt.state = rt.active ? PatchState::On : PatchState::Off;
-                rt.detail.clear();
+                rt.detail.Clear();
                 changed = true;
             }
         }
@@ -473,23 +471,23 @@ bool Patcher::Apply(size_t i, const std::vector<uint8_t>& bytes) {
     const PatchDef& def = Definitions()[i];
     std::vector<uint8_t> current(rt.original.size());
     if (bytes.size() != rt.original.size() || !m_proc.Read(rt.target, current.data(), current.size())) {
-        Fail(i, "The game memory could not be read.");
+        Fail(i, Key("detail_memory_unreadable"));
         return false;
     }
     const std::vector<uint8_t>& expected = rt.active ? rt.written : rt.original;
     if (current != expected) {
-        Fail(i, "The game code changed since the scan, so nothing was written. Use 'Scan again'.");
+        Fail(i, Key("detail_changed_since_scan"));
         return false;
     }
     if (!rt.active) {
         JournalPut(i, def.kind == PatchKind::Code ? bytes : std::vector<uint8_t>{});
         if (!SaveJournal()) {
             JournalDrop(i);
-            Fail(i, "The undo record could not be saved, so nothing was written.");
+            Fail(i, Key("detail_journal_unsaved"));
             return false;
         }
     }
-    std::string error;
+    LocText error;
     if (!m_proc.Write(rt.target, bytes.data(), bytes.size(), def.kind == PatchKind::Code, error)) {
         if (!rt.active) {
             JournalDrop(i);
@@ -502,7 +500,7 @@ bool Patcher::Apply(size_t i, const std::vector<uint8_t>& bytes) {
     rt.active = true;
     rt.written = bytes;
     rt.state = PatchState::On;
-    rt.detail.clear();
+    rt.detail.Clear();
     if (first) Log(std::string(def.id) + " switched on.");
     return true;
 }
@@ -514,15 +512,15 @@ bool Patcher::Undo(size_t i, bool force) {
     if (rt.latched && !force) return false;
     std::vector<uint8_t> current(rt.original.size());
     if (!m_proc.Read(rt.target, current.data(), current.size())) {
-        Fail(i, "The game memory could not be read.");
+        Fail(i, Key("detail_memory_unreadable"));
         return false;
     }
     if (current != rt.original) {
         if (current != rt.written) {
-            Fail(i, "The game code was changed by something else, so it was left alone.");
+            Fail(i, Key("detail_changed_by_other"));
             return false;
         }
-        std::string error;
+        LocText error;
         if (!m_proc.Write(rt.target, rt.original.data(), rt.original.size(), def.kind == PatchKind::Code, error)) {
             Fail(i, error);
             return false;
@@ -550,12 +548,12 @@ void Patcher::Verify() {
             rt.written.clear();
             rt.state = PatchState::Reverted;
             rt.latched = true;   // never fight the game over it
-            rt.detail = "The game put the original code back. Switch the feature off and on to try again.";
+            rt.detail = Key("detail_undone_by_game");
             JournalDrop(i);
             SaveJournal();
             Log(std::string(Definitions()[i].id) + " was undone by the game.");
         } else {
-            Fail(i, "The game code was changed by something else, so it is left alone.");
+            Fail(i, Key("detail_changed_by_other"));
         }
         changed = true;
     }
@@ -570,12 +568,12 @@ void Patcher::RestoreAll() {
     Publish();
 }
 
-void Patcher::Fail(size_t i, std::string why) {
+void Patcher::Fail(size_t i, LocText why) {
     Runtime& rt = m_rt[i];
     rt.state = PatchState::Failed;
     rt.latched = true;
     rt.detail = std::move(why);
-    Log(std::string(Definitions()[i].id) + ": " + rt.detail);
+    Log(std::string(Definitions()[i].id) + ": " + English(rt.detail));
 }
 
 bool Patcher::SaveJournal() { return m_journal.Save(m_journalFile); }
@@ -600,7 +598,7 @@ void Patcher::JournalDrop(size_t i) {
 // Status
 // ---------------------------------------------------------------------------
 
-void Patcher::SetSession(SessionState state, std::string message) {
+void Patcher::SetSession(SessionState state, LocText message) {
     m_session = state;
     m_sessionMessage = std::move(message);
     Publish();

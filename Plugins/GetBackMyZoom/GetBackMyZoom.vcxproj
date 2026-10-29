@@ -113,6 +113,8 @@
     <ClInclude Include="src\patch\Patcher.h" />
     <ClInclude Include="src\patch\Pattern.h" />
     <ClInclude Include="src\patch\RestoreJournal.h" />
+    <ClInclude Include="src\patch\LocText.h" />
+    <ClInclude Include="src\lang_en.generated.h" />
     <ClInclude Include="..\..\POEFixer\plugin_sdk\PluginAbi.h" />
     <ClInclude Include="..\..\POEFixer\plugin_sdk\PluginSDK.h" />
   </ItemGroup>
