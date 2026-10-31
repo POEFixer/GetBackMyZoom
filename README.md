@@ -1,6 +1,6 @@
 # Get Back My Zoom
 
-Current version: 1.1.6
+Current version: 1.1.7
 
 Requires POE2Fixer 364 or newer.
 

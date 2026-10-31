@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.7
+
+- Built with the current plugin SDK: a controller that is not XInput reports no port (-1) even when ready.
+
 ## 1.1.6
 
 - Follows the program language (ten languages).
